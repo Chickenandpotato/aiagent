@@ -29,7 +29,15 @@ def main():
     
     client = genai.Client(api_key=api_key)
     messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
-    generate_content(client, messages, args.verbose)
+    
+    for _ in range(20):
+        response = generate_content(client, messages, args.verbose)
+        if not response.function_calls:
+            break
+
+    else:
+        SystemExit("Error: Exceeded maximum number of function calls without reaching a final response")
+       
     
     
     
@@ -50,6 +58,13 @@ def generate_content(client, messages, verbose):
         print(
             f"User prompt: {messages[0].parts[0].text}\nPrompt tokens: {response.usage_metadata.prompt_token_count}\nResponse tokens: {response.usage_metadata.candidates_token_count}"
     )
+        
+    candidates = response.candidates
+    if not candidates:
+        raise Exception("No candidates in response")
+    for candidate in candidates:
+        messages.append(candidate.content)
+    
     function_calls = response.function_calls
     function_call_result = []
     if function_calls:
@@ -64,8 +79,11 @@ def generate_content(client, messages, verbose):
             function_call_result.append(function_call_response.parts[0])
             if verbose:
                 print(f"-> {function_call_response.parts[0].function_response.response}") 
+        messages.append(types.Content(role="user", parts=function_call_result))
     else:
         print(response.text)
+    
+    return response
 
 
 
