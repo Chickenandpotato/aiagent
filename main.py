@@ -5,6 +5,8 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from prompts import system_prompt
+from functions.call_function import available_functions
 
 
 def build_parser():
@@ -36,6 +38,10 @@ def generate_content(client, messages, verbose):
     response = client.models.generate_content(
         model = "gemini-2.5-flash",
         contents = messages,
+        config=types.GenerateContentConfig(
+            tools=[available_functions],
+            system_instruction=system_prompt,
+            temperature=0)
     )
     if response.usage_metadata == None:
         raise RuntimeError("failed API request")
@@ -44,7 +50,12 @@ def generate_content(client, messages, verbose):
         print(
             f"User prompt: {messages[0].parts[0].text}\nPrompt tokens: {response.usage_metadata.prompt_token_count}\nResponse tokens: {response.usage_metadata.candidates_token_count}"
     )
-    print(response.text)
+    function_calls = response.function_calls
+    if function_calls:
+        for function_call in function_calls:
+            print(f"Calling function: {function_call.name}({function_call.args})")
+    else:
+        print(response.text)
 
 
 
