@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from prompts import system_prompt
-from functions.call_function import available_functions
+from functions.call_function import available_functions, call_function
 
 
 def build_parser():
@@ -51,9 +51,19 @@ def generate_content(client, messages, verbose):
             f"User prompt: {messages[0].parts[0].text}\nPrompt tokens: {response.usage_metadata.prompt_token_count}\nResponse tokens: {response.usage_metadata.candidates_token_count}"
     )
     function_calls = response.function_calls
+    function_call_result = []
     if function_calls:
         for function_call in function_calls:
-            print(f"Calling function: {function_call.name}({function_call.args})")
+            function_call_response = call_function(function_call, verbose)
+            if not function_call_response.parts[0]:
+                raise Exception("function call response has no parts")
+            if not function_call_response.parts[0].function_response:
+                raise Exception("function call response has no function response")
+            if not function_call_response.parts[0].function_response.response:
+                raise Exception("function call response has no function response content")
+            function_call_result.append(function_call_response.parts[0])
+            if verbose:
+                print(f"-> {function_call_response.parts[0].function_response.response}") 
     else:
         print(response.text)
 
